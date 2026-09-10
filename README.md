@@ -26,9 +26,32 @@ ai-audiobook 主仓托管在 Gitee。主仓代码一行不上 GitHub，避免「
 
 每包安装结果（PASS/FAIL + 耗时）写入 workflow Step Summary 表格。
 
-## 结论
+## 结论（2026-09-11，run [34543315613](https://github.com/chinabaijunjie/ai-audiobook-win-spike/actions/runs/34543315613)）
 
-> 待 CI 运行后填写。
+**两条链路均验证通过，spike 命题成立。**
+
+### 链路 1：CosyVoice 依赖（deps-spike，9m52s）
+
+- **176 / 178 通过**（逐包安装，Python 3.10，CPU torch 2.3.1）
+- **关键 C 扩展导入验证 24 项全部通过**（pyworld/world、numba、librosa、whisper、onnxruntime 等 0 失败）——spike 核心命题：pyworld 等 C 扩展在 Windows x64 **可安装可导入**
+- 失败 2 项，均有明确路径：
+
+| 包 | 根因 | 修复方向 |
+|----|------|----------|
+| `openai-whisper==20231117` | 构建隔离环境新版 setuptools 移除 `pkg_resources`，setup.py 挂在 import 阶段（非平台问题） | 构建环境预装 `setuptools<81` 或升级 whisper 版本 |
+| `uvloop==0.22.1` | 平台硬性不支持（`uvloop does not support Windows`），预期内 | sidecar 代码适配 asyncio ProactorEventLoop（完整工程阶段 5 条失败链之一） |
+
+### 链路 2：Tauri 壳 NSIS（tauri-nsis，6m43s）
+
+- x64 NSIS 安装包产出 ✅（artifact `nsis-x64-installer`，1.85 MB）
+- 模板派生壳（去 sidecar 模块）零改动编译通过
+
+### 对完整工程的含义
+
+- 依赖风险已排除，Windows 版完整适配可启动（uvloop 替换 / os.killpg / lsof 进程清理 / 二进制 / 打包脚本 5 条失败链 + whisper 构建修复），评估维持 1-2 周
+- 本仓 workflow 可直接复用为完整工程期的 CI 依赖验证基准
+
+> 结论已回填 ai-audiobook `wiki/dev/TODO.md` Windows 版打包行（2026-09-11）。
 
 ## 关联
 
