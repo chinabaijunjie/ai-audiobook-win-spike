@@ -26,7 +26,7 @@ ai-audiobook 主仓托管在 Gitee。主仓代码一行不上 GitHub，避免「
 
 每包安装结果（PASS/FAIL + 耗时）写入 workflow Step Summary 表格。
 
-## 结论（2026-09-11，run [34543315613](https://github.com/chinabaijunjie/ai-audiobook-win-spike/actions/runs/34543315613)）
+## 结论（2026-09-11，最终 run [34546505831](https://github.com/chinabaijunjie/ai-audiobook-win-spike/actions/runs/34546505831) 双 job 全绿）
 
 **两条链路均验证通过，spike 命题成立。**
 
