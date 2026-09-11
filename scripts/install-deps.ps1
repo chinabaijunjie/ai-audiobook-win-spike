@@ -77,7 +77,7 @@ Write-Host ""
 Write-Host "=== 关键 C 扩展导入验证 ==="
 $critical = @{
     'numpy' = 'numpy'; 'scipy' = 'scipy'; 'pandas' = 'pandas'
-    'pyworld' = 'world'; 'numba' = 'numba'; 'llvmlite' = 'llvmlite'
+    'pyworld' = 'pyworld';  # 顶层导入名即 pyworld（非 world；WORLD 是其包装的 C 库名） 'numba' = 'numba'; 'llvmlite' = 'llvmlite'
     'librosa' = 'librosa'; 'soundfile' = 'soundfile'; 'soxr' = 'soxr'
     'onnx' = 'onnx'; 'onnxruntime' = 'onnxruntime'; 'cffi' = 'cffi'
     'Cython' = 'Cython'; 'grpcio' = 'grpc'; 'cryptography' = 'cryptography'
@@ -115,6 +115,10 @@ foreach ($r in $importResults) {
     $summary2 += "| ``$($r.Package)`` | ``$($r.ImportName)`` | $($r.Status) |"
 }
 $summary2 | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+
+# 清理导入验证残留的退出码：失败的 python -c 会留 $LASTEXITCODE=1，
+# GitHub Actions 的 pwsh wrapper 在脚本末尾自动 exit $LASTEXITCODE，会把本 step 误报为 failure
+$global:LASTEXITCODE = 0
 
 # 有失败包时以非零退出，让 job 标红但表格已完整记录（失败清单是合法 spike 结论）
 if ($failCount -gt 0) {

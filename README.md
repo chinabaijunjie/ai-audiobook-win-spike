@@ -33,7 +33,8 @@ ai-audiobook 主仓托管在 Gitee。主仓代码一行不上 GitHub，避免「
 ### 链路 1：CosyVoice 依赖（deps-spike，9m52s）
 
 - **176 / 178 通过**（逐包安装，Python 3.10，CPU torch 2.3.1）
-- **关键 C 扩展导入验证 24 项全部通过**（pyworld/world、numba、librosa、whisper、onnxruntime 等 0 失败）——spike 核心命题：pyworld 等 C 扩展在 Windows x64 **可安装可导入**
+- **关键 C 扩展导入验证 22/24 通过**（pyworld、numba、librosa、onnxruntime、cffi、cryptography、Cython、grpc、tiktoken、tokenizers 等全部通过）——spike 核心命题：pyworld 等 C 扩展在 Windows x64 **可安装可导入**；仅 whisper、uvloop 导入失败，均为各自安装失败的直接后果，非平台兼容性问题
+- 导入名勘误：pyworld 顶层导入名是 `pyworld`（WORLD 是其包装的 C 库名），验证脚本首版误用 `import world` 曾误报失败，已修正
 - 失败 2 项，均有明确路径：
 
 | 包 | 根因 | 修复方向 |
