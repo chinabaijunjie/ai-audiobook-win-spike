@@ -89,8 +89,9 @@ $critical = @{
 
 $importResults = @()
 foreach ($pkgName in ($critical.Keys | Sort-Object)) {
-    # 只验证清单中存在的包
-    if ($pkgs -notcontains $pkgName) { continue }
+    # 清单行格式为 "name==version"，需按包名前缀匹配（-notcontains 对整行比较永远为 false）
+    $match = $pkgs | Where-Object { $_ -like "$pkgName==*" }
+    if (-not $match) { continue }
     $importName = $critical[$pkgName]
     $r = python -c "import $importName; print('ok')" 2>&1
     $ok = ($LASTEXITCODE -eq 0)
