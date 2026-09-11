@@ -1,0 +1,88 @@
+name: Windows Release（主仓真实代码打包 — 方案B拉源）
+
+# 方案B（windows-packaging-plan.md §3 第1步骨架）：
+# - 打包配置驻本 spike 仓；构建时用 Gitee 只读令牌拉主仓源码，代码"过境不驻留"
+# - 前置：GitHub Secrets 配置 GITEE_READONLY_TOKEN（最小 scope 只读）——未配置前本 workflow 不可用（r1-probe 会明确报错退出）
+# - 纪律：主仓零改动、零 push；R1 失败即停下出方案 A 请示，不得自行切换
+on:
+  workflow_dispatch:
+    inputs:
+      gitee_ref:
+        description: 'Gitee 主仓 ref（tag 优先，如 v0.3.57；默认 master）'
+        required: false
+        default: 'master'
+  push:
+    tags:
+      - 'win-v*'   # spike 仓打包 tag：win-v* → 触发 R1 探测 + 打包（ref 取输入或 master）
+
+permissions:
+  contents: read
+
+env:
+  GITEE_REPO: wangyunbaijunjie/ai-audiobook
+
+jobs:
+  # ── Job 1: R1 探测（方案 §3 第 0 步，令牌到位后首个验证项）──────────────
+  r1-probe:
+    name: R1 探测 — Gitee 跨境拉源可行性
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Gitee clone 探测（depth1 + 计时 + 重试×3 + 脱敏）
+        shell: pwsh
+        env:
+          GITEE_READONLY_TOKEN: ${{ secrets.GITEE_READONLY_TOKEN }}   # Secrets 占位：尚未配置
+          GITEE_REF: ${{ github.event.inputs.gitee_ref || 'master' }}
+        run: ./scripts/r1-probe.ps1
+
+  # ── Job 2: 真实代码打包（R1 探测通过后执行）───────────────────────────
+  windows-release:
+    name: 真实代码 → PyInstaller sidecar + Tauri NSIS x64
+    needs: r1-probe
+    runs-on: windows-latest
+    timeout-minutes: 150
+    steps:
+      # 代码过境不驻留：clone 进 runner 临时磁盘，构建完随 runner 销毁，不 commit 到任何 GitHub 仓
+      - name: 从 Gitee 拉主仓源码（depth1 + 指定 ref）
+        shell: pwsh
+        env:
+          GITEE_READONLY_TOKEN: ${{ secrets.GITEE_READONLY_TOKEN }}   # Secrets 占位：尚未配置
+          GITEE_REF: ${{ github.event.inputs.gitee_ref || 'master' }}
+        run: |
+          git clone --depth 1 --branch $env:GITEE_REF "https://oauth2:$env:GITEE_READONLY_TOKEN@gitee.com/$($env:GITEE_REPO).git" ai-audiobook
+          cd ai-audiobook
+          git log -1 --format='打包源: %h %s'
+
+      - name: 前端依赖安装
+        working-directory: ai-audiobook
+        run: npm ci
+
+      - name: 前端构建
+        working-directory: ai-audiobook
+        run: npm run build
+
+      # ⚠️ 攻坚项（方案 §3 第 2 步，首跑预期失败属正常）：
+      #   1. scripts/build-sidecar.sh → build-sidecar.ps1 适配（PyInstaller 三 binary：sidecar_cosyvoice / tts_worker / voice_designer）
+      #   2. CosyVoice 库源获取（COSYVOICE_LIB_DIR）：clone FunAudioLLM/CosyVoice 官方 GitHub 镜像
+      #   3. uvloop → ProactorEventLoop/winloop 替换（原失败链）
+      #   4. openai-whisper 构建修复（setuptools<81 pin 或升级 whisper）
+      - name: Sidecar 打包（攻坚占位）
+        shell: pwsh
+        working-directory: ai-audiobook
+        run: |
+          Write-Host "TODO(§3第2步): build-sidecar.ps1 适配 + CosyVoice 库获取 + uvloop/whisper 修复后替换本占位步骤"
+          exit 1
+
+      - name: Tauri NSIS x64 打包
+        working-directory: ai-audiobook
+        run: npx tauri build
+
+      - name: 上传 NSIS 安装包 artifact（仅安装包，无源码）
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-audiobook-win-x64
+          path: ai-audiobook/src-tauri/target/release/bundle/nsis/*.exe
+          if-no-files-found: error
